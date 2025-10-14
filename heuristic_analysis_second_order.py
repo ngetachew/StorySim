@@ -1,4 +1,4 @@
-from transformers import AutoTokenizer, AutoModelForCausalLM
+#from transformers import AutoTokenizer, AutoModelForCausalLM
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
@@ -7,7 +7,7 @@ from storyboard import Storyboard
 from storysim import StorySimulator
 import pandas as pd
 from together import Together
-from experiment_defs import mislead_experiment
+from experiment_defs import second_order_tom_experiment
 
 load_dotenv()
 
@@ -56,8 +56,8 @@ Actual Experiements
 
 # Mislead
 values = [5,10, 20, 30, 40, 50, 60, 70, 80]
-values = [20, 30]
-values = [5]
+values = [30, 40, 50, 60, 70, 80]
+values = [40, 50, 60, 70, 80]
 #values = [30,40]
 #values = values[-2:]
 
@@ -101,7 +101,7 @@ for v in range(len(values)):
 
     for _ in range(num_trials):
         
-        event_dict, max_actor = mislead_experiment(mislead_distance, story_length)
+        event_dict, max_actor = second_order_tom_experiment(mislead_distance, story_length)
         storyboard = Storyboard('enters', graph, possible_people[:num_people], story_length, event_dict)
 
         sim = StorySimulator(
@@ -127,15 +127,16 @@ for v in range(len(values)):
     tom_responses, wm_responses = [], []
     #model_choice =  "deepseek-ai/DeepSeek-R1"
     model_choice =  "o3-mini"
-    #model_choice = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+    #model_choice = "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B"
     tom_total, wm_total = 0, 0
     for i, d in enumerate(df.iterrows()):
-        if i % 10 == 0:
-            print(f'Processing {i}/{len(df)}')
+        if i % 5 == 0:
+            print(f'Processing {i}/{len(df)} using {model_choice}')
         _ ,row = d
-        p = row['P1'].split(',')[-1]
+        p = row['P1'].split(',')
         prompt_prefix = f"{intial_prompt}\n{row['Story']}.\n"
-        prompt = f'{prompt_prefix}Q: Where does {p} think {row["P2"]} is?\nA:'
+        prompt = f'{prompt_prefix}Q: Where does {p[0]} think {p[1]} thinks {row["P2"]} is?\nA:'
+        #print(prompt)
         answer = prompt_model(prompt, model_choice)
         tom_responses.append(answer)
     df['TOM Responses'] = tom_responses
@@ -153,7 +154,7 @@ for v in range(len(values)):
             print(f'Index {i}')
             print("\n-////==============////-\n")
     print(len(unknown))
-    df.to_csv(f'new_mislead/{model_choice.replace("/","_")}_{values[v]}.csv')
+    df.to_csv(f'~/scratch/new_mislead_second_order/{model_choice.replace("/","_")}_{values[v]}.csv')
         
 for i in range(len(knowns)):
     score = sum([1 for k in knowns[i] if k == 'True'])

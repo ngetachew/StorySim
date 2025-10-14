@@ -225,6 +225,8 @@ class StorySimulator:
             else: 
                 if self.events:
                     choices = [p for p in self.people if p not in self.events[next_event]['actors']]
+                    if 'exclude' in self.events[next_event]:
+                        choices = [p for p in choices if p not in self.events[next_event]['exclude']]
                 else:
                     choices = self.people
                 person = random.choice(choices)

@@ -20,13 +20,23 @@ def mislead_experiment(mislead, length):
 def second_order_tom_experiment(mislead, length):
     event_dict = {}
     event_dict[10] = {"name": "cross_paths","actors": ['0','1','2'], "location": ['0'], "path_type":"same"}
-    event_dict[16] = {"name": "cross_paths","actors": ['1','2'], "location": ['1'], "path_type":"same", "prev": ['0']}
+    event_dict[16] = {"name": "cross_paths","actors": ['1','2'], "location": ['1'], "path_type":"same", "prev": ['0'], "exclude": ['0']}
     event_dict[17] = {"name": "exclusive_random", "actors": ['0','1','2'], "stop": 17 + mislead}
     event_dict[17 + mislead] = {"name":"move", "actors":['2'],"location":['2']}
     event_dict[17 + mislead + 1] = {"name": "exclusive_random", "actors": ['0','1','2'], "stop": length}
     # experiment_info = {'cross path locs': [loc_1, loc_2], 'poi': poi, 'last': loc_3}
-    return event_dict, "1"
+    return event_dict, "2"
 
+def third_order_tom_experiment(mislead, length):
+    event_dict = {}
+    event_dict[10] = {"name": "cross_paths","actors": ['0','1','2','3'], "location": ['0'], "path_type":"same"}
+    event_dict[18] = {"name": "cross_paths","actors": ['1','2','3'], "location": ['1'], "path_type":"same", "prev": ['0'], "exclude": ['0']}
+    event_dict[24] = {"name": "cross_paths","actors": ['2','3'], "location": ['2'], "path_type":"same", "prev": ['0', '1'], "exclude": ['0','1']}
+    event_dict[25] = {"name": "exclusive_random", "actors": ['0','1','2', '3'], "stop": 25 + mislead}
+    event_dict[25 + mislead] = {"name":"move", "actors":['3'],"location":['3']}
+    event_dict[25 + mislead + 1] = {"name": "exclusive_random", "actors": ['0','1','2', '3'], "stop": length}
+    # experiment_info = {'cross path locs': [loc_1, loc_2], 'poi': poi, 'last': loc_3}
+    return event_dict, "3"
     
 # Deprecated
 def cross_path_overlap(actors, locs, g, mislead, length, n):
@@ -54,3 +64,11 @@ def sally_anne(n):
     # experiment_info = {'cross path location': ['0'], 'poi':['0','1'], "obj": obj[0]}
     return event_dict, manual_actions_dict, "2", obj[0]
 # TODO: manual_actions?
+
+def goal_oriented(n):
+    event_dict = {}
+    manual_actions_dict = {}
+    manual_actions_dict[0] = {'action': f'1 is trying to get away from 0'}
+    event_dict[10] = {"name": "cross_paths","actors": ['0','1'], "location": ['0'], "path_type": "different"}
+    event_dict[20] = {"name": "cross_paths","actors": ['0','1'], "location": ['0'], "path_type": "same"}
+    return event_dict, manual_actions_dict, "1"

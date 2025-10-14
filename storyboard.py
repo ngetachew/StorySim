@@ -13,7 +13,7 @@ class Storyboard:
     def __init__(self, action: str, graph: dict, actor_pool: list, story_length: int, events: dict, manual_actions: dict = None, locations: list = []):
         self.action = action
         self.graph = graph
-        # TODO: manual_actions
+        # TODO: manual_actions 
         self.manual_actions = manual_actions if manual_actions is not None else {}
         if graph is not None:
             self.locations = list(graph.keys())
@@ -45,7 +45,7 @@ class Storyboard:
             self.loc_mapping = {f"{i}": self.locations[i] for i in range(len(self.locations))}
         else:
             # Iterate through the graph to create a valid set of location assignments that is constrained by the graph.
-            start_loc = random.choice(self.locations)
+            start_loc = random.choice(self.locations[:-1])
             graph = traverse_graph(self.graph, start_loc)
             self.loc_mapping = dict()
             
@@ -55,6 +55,8 @@ class Storyboard:
             # Turn into list of indices as strings
             # self.events[time_step]['actors'] = self.events[time_step]['actors'].split(',')
             self.events[time_step]['actors'] = [self.actor_mapping[i] for i in self.events[time_step]['actors']]
+            if 'exclude' in self.events[time_step]:
+                self.events[time_step]['exclude'] = [self.actor_mapping[i] for i in self.events[time_step]['exclude']]
             
             if 'location' in self.events[time_step]:
                 # self.events[time_step]['location'] = self.events[time_step]['location'].split(',')

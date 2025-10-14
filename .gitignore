@@ -7,9 +7,12 @@
 
 # Ignore environment files
 .env
+.vscode
 
 # Other
 view_results.ipynb
 plot_generator.ipynb
+# For cleanliness
+generate_data.py
 
 figures/

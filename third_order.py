@@ -7,7 +7,7 @@ from storyboard import Storyboard
 from storysim import StorySimulator
 import pandas as pd
 from together import Together
-from experiment_defs import mislead_experiment
+from experiment_defs import third_order_tom_experiment
 
 load_dotenv()
 
@@ -47,7 +47,6 @@ def compute_score_unsure(label, response, starting_loc='hallway'):
     return f'{response}, {label}'
 
 
-
 '''
 Actual Experiements
 '''
@@ -55,9 +54,7 @@ Actual Experiements
 #values = [3,10,20,40]
 
 # Mislead
-values = [5,10, 20, 30, 40, 50, 60, 70, 80]
-values = [20, 30]
-values = [5]
+values = [5,10, 20, 30, 40, 50, 60, 70]
 #values = [30,40]
 #values = values[-2:]
 
@@ -101,7 +98,7 @@ for v in range(len(values)):
 
     for _ in range(num_trials):
         
-        event_dict, max_actor = mislead_experiment(mislead_distance, story_length)
+        event_dict, max_actor = third_order_tom_experiment(mislead_distance, story_length)
         storyboard = Storyboard('enters', graph, possible_people[:num_people], story_length, event_dict)
 
         sim = StorySimulator(
@@ -119,7 +116,7 @@ for v in range(len(values)):
         d['P1'] = ','.join([storyboard.actor_mapping[str(a)] for a in range(int(max_actor))])
         d['P2'] = storyboard.actor_mapping[max_actor]
         d['Story'].append(story)
-        d['Label'].append(storyboard.loc_mapping[sorted(storyboard.loc_mapping.keys())[-2]])
+        d['Label'].append(storyboard.loc_mapping[sorted(storyboard.loc_mapping.keys())[1]])
         df = pd.concat([df, pd.DataFrame(d)])   
     
     # Prompt model
@@ -133,9 +130,9 @@ for v in range(len(values)):
         if i % 10 == 0:
             print(f'Processing {i}/{len(df)}')
         _ ,row = d
-        p = row['P1'].split(',')[-1]
+        p = row['P1'].split(',')
         prompt_prefix = f"{intial_prompt}\n{row['Story']}.\n"
-        prompt = f'{prompt_prefix}Q: Where does {p} think {row["P2"]} is?\nA:'
+        prompt = f'{prompt_prefix}Q: Where does {p[0]} think {p[1]} think {p[2]} thinks {row["P2"]} is?\nA:'
         answer = prompt_model(prompt, model_choice)
         tom_responses.append(answer)
     df['TOM Responses'] = tom_responses
@@ -153,7 +150,7 @@ for v in range(len(values)):
             print(f'Index {i}')
             print("\n-////==============////-\n")
     print(len(unknown))
-    df.to_csv(f'new_mislead/{model_choice.replace("/","_")}_{values[v]}.csv')
+    df.to_csv(f'third_order/{model_choice.replace("/","_")}_{values[v]}.csv')
         
 for i in range(len(knowns)):
     score = sum([1 for k in knowns[i] if k == 'True'])
