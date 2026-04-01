@@ -146,13 +146,16 @@ class StorySimulator:
                 required_events[t] = ev['actors']
                 knuth[t] = -102
                 start = t + 1
-        # Generation phase
+        # -- Generation phase --
         sequences = []
         if self.events:
             event_list = iter(sorted(self.events.keys()))
             next_event = next(event_list)        
             paths, indices = None, None
         for i in knuth:
+            # Manual action check
+            if self.manual_actions and self.time_step in manual_actions:
+                    sequences.append(f'*{manual_actions[self.time_step]}')  
             # Cross paths
             if i > 0 :
                 if paths == None: 
@@ -222,7 +225,7 @@ class StorySimulator:
                     except:
                         # This means we're done
                         continue
-            else: 
+            else:
                 if self.events:
                     choices = [p for p in self.people if p not in self.events[next_event]['actors']]
                     if 'exclude' in self.events[next_event]:
@@ -234,8 +237,7 @@ class StorySimulator:
                 sequences.append(self.event_statement(person, loc))
                 self.update_state(person, loc)
                 self.time_step += 1
-            if self.manual_actions and self.time_step - 1 in manual_actions:
-                sequences.append(f'*{manual_actions[self.time_step-1]}') 
+            
         return sequences
     
     

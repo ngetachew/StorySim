@@ -61,12 +61,12 @@ class Storyboard:
             if 'location' in self.events[time_step]:
                 # self.events[time_step]['location'] = self.events[time_step]['location'].split(',')
                 if self.graph is None:
-                    self.events[time_step]['location'] = [self.loc_mapping[label] for label in self.events[time_step]['location']]
+                    self.events[time_step]['location'] = [self.loc_mapping[label] if label not in self.locations else label for label in self.events[time_step]['location']]
                 else:
                     for i, label in enumerate(self.events[time_step]['location']):
-                        if label not in self.loc_mapping:
+                        if label not in self.loc_mapping and label not in self.locations:
                             self.loc_mapping[label] = next(graph)                         # type: ignore
-                        self.events[time_step]['location'][i] = self.loc_mapping[label]
+                        self.events[time_step]['location'][i] = self.loc_mapping[label] if label not in self.locations else label
             if 'prev' in self.events[time_step]:
                 self.events[time_step]['prev'] = self.loc_mapping[self.events[time_step]['prev'][0]]
         # Use the same mappings to construct manual_actions

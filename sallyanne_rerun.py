@@ -204,12 +204,12 @@ for _ in range(num_trials):
     
 intial_prompt = f"Read the following story and answer the question at the end. Note that all characters start in {sim.locations[-1].replace('_',' ')}. Characters in the same location can see where eachother go when someone leaves. If characters are in different locations, they cannot see eachother."
 tom_responses, wm_responses = [], []
-model_choice =  "gpt-4"
+model_choice =  "gpt-5.4"
 tom_total, wm_total = 0, 0
 for _ ,row in df.iterrows():
     p = row['P1'].split(',')
     prompt_prefix = f"{intial_prompt}\n{row['Story']}.\n"
-    prompt = f'{prompt_prefix}Q:What does {row["P1"]} think {row["P2"]} think is in the basket?\nA:'
+    prompt = f'{prompt_prefix}Q:What does {p[-1]} think in the basket?\nA:'
     answer = prompt_model(prompt, model_choice)
     tom_responses.append(answer)
 df['TOM Responses'] = tom_responses

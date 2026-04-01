@@ -55,7 +55,7 @@ async def run_llm_parallel(user_prompt : str, model : str, system_prompt : str =
                 messages=messages,
             )
             break
-        except together.RateLimitError as e:
+        except together.error.RateLimitError as e:
             print(e)
             await asyncio.sleep(sleep_time)
     return response.choices[0].message.content
@@ -81,21 +81,44 @@ def compute_score_unsure(label, response, starting_loc='hallway'):
 '''
 Actual Experiements
 '''
-# Num of people
-#values = [3,10,20,40]
+graph = {
+    # Start node – all characters start here
+    "your_phone": [
+        "doctors_office",
+        "boss",
+        "school_office",
+        "bank",
+        "city_hall",
+        "landlord",
+    ],
+
+    # Medical / health related
+    "doctors_office": ["your_phone", "bank", "city_hall"],
+
+    # Work / professional
+    "boss": ["your_phone", "bank", "school_office"],
+
+    # Education
+    "school_office": ["your_phone", "boss", "city_hall"],
+
+    # Money / services
+    "bank": ["your_phone", "doctors_office", "boss", "city_hall"],
+
+    # Government / authority
+    "city_hall": ["your_phone", "doctors_office", "school_office", "bank", "landlord"],
+
+    # Housing
+    "landlord": ["your_phone", "city_hall"],
+}
+
+
 
 # Mislead
-values = [5,10, 20, 30, 40, 50, 60, 70, 80]
-#values = [5, 30, 50, 80]
-#values = [30,40]
-#values = values[-2:]
+values = [5, 10, 20, 30, 40, 50, 60, 70, 80]
+#values = [10, 20, 30, 40, 50, 60, 70, 80]
 
-#models = ["meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8", "meta-llama/Llama-4-Scout-17B-16E-Instruct"]
-models = ["Qwen/Qwen3.5-397B-A17B"]
-# models = [    "meta-llama/Llama-3.2-3B-Instruct-Turbo",
-#               "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-#               "deepseek-ai/DeepSeek-R1", 
-#               "gpt-4"]
+models = ["gpt-4"]
+
 model_knowns = {m:[] for m in models}
 model_unkowns = {m:[] for m in models}
 possible_people = [
@@ -118,20 +141,11 @@ for v in range(len(values)):
     print(f'Mislead = {values[v]}')
     df = pd.DataFrame({'Story':[], 'Label':[], 'P1':[], 'P2':[], 'Last':[], 'CP_Loc':[]})
     num_people = 7
-    graph = { 
-        "room_1": ["room_2", "the_hallway","room_5"],
-        "room_2": ["room_1", "room_3","the_hallway"],
-        "room_3": ["room_2", "room_4","the_hallway"],
-        "room_4": ["room_3", "room_5","room_1"],
-        "room_5": ["room_4", "room_1","room_2"],
-        "the_hallway": ["room_1", "room_4","room_2"]
-    }
 
 
     locations = list(graph.keys())
     story_length = 100
-    num_trials = 50
-    
+    num_trials = 100
     mislead_distance = values[v]
 
     random.seed(25)
@@ -139,19 +153,22 @@ for v in range(len(values)):
     for _ in range(num_trials):
         
         event_dict, max_actor = mislead_experiment(mislead_distance, story_length)
-        storyboard = Storyboard('enters', graph, possible_people[:num_people], story_length, event_dict)
+        storyboard = Storyboard('joins_a_call_with_the', graph, possible_people[:num_people], story_length, event_dict)
+        locations = list(graph.keys())
 
         sim = StorySimulator(
             people=possible_people[:num_people],
             locations=locations,
-            action="enters",
+            action="joins_a_call_with_the",
             storyboard=storyboard,
             graph=graph
         )
 
         res = sim.run_simulation(story_length)
-
         story = sim.formal_to_story(res)
+        print(story)
+        
+
         d = {'Story':[], 'Label':[], 'P1':[], 'P2':[]}
         d['P1'] = ','.join([storyboard.actor_mapping[str(a)] for a in range(int(max_actor))])
         d['P2'] = storyboard.actor_mapping[max_actor]
@@ -160,83 +177,52 @@ for v in range(len(values)):
         df = pd.concat([df, pd.DataFrame(d)])   
     
     # Prompt model
-    intial_prompt = f"Read the following story and answer the question at the end. Note that all characters start in {sim.locations[-1].replace('_',' ')}. Characters in the same location can see where eachother go when someone leaves. If characters are in different locations, they cannot see eachother. There is enough information to answer every question. Think step by step."
+    # TODO: Go over this again
+    intial_prompt = f"Read the following story and answer the question at the end. Note that all characters start in {sim.locations[-1].replace('_',' ')}. Characters in the same conference call can tell where eachother go when someone hangs up. If characters are in different calls, they don't know which call another person is in. Assume characters remain in a call until you find out that they're in a different one. There is enough information to answer every question."
     tom_responses, wm_responses = [], []
+    
     # Make a copy of each dataframe for each model
     dataframes = {model_name: df.copy() for model_name in models}
-
-    # Helper: run async calls for non-OpenAI models and sync calls for OpenAI-style models
-    def gather_responses_for_prompt(prompt_text, models_list):
-        async_models = [m for m in models_list if ('gpt' not in m and 'o3' not in m)]
-        sync_models = [m for m in models_list if m not in async_models]
-
-        responses = {}
-
-        # Run async models in parallel
-        if async_models:
-            async def _run_async():
-                coros = [run_llm_parallel(user_prompt=prompt_text, model=m) for m in async_models]
-                return await asyncio.gather(*coros)
-
-            try:
-                async_results = asyncio.run(_run_async())
-            except Exception as e:
-                print(f'Error running async models: {e}')
-                async_results = [''] * len(async_models)
-
-            for m, r in zip(async_models, async_results):
-                responses[m] = r
-
-        # Run sync models one-by-one
-        for m in sync_models:
-            try:
-                responses[m] = prompt_model(prompt_text, m)
-            except Exception as e:
-                print(f'Error calling model {m}: {e}')
-                responses[m] = ''
-
-        # Return responses in original order
-        return [responses.get(m, '') for m in models_list]
-
-    tom_responses = []
+    
+    tom_total, wm_total = 0, 0
     for i, d in enumerate(df.iterrows()):
         if i % 10 == 0:
-            print(f'Processing {i}/{len(df)} using models list')
-        _ , row = d
+            print(f'Processing {i}/{len(df)} using {models}')
+        _ ,row = d
         p = row['P1'].split(',')
         prompt_prefix = f"{intial_prompt}\n{row['Story']}.\n"
+        #prompt = f'{prompt_prefix}Q: Where does {p[0]} think {p[1]} thinks {row["P2"]} is?\nA:'
         prompt = f'{prompt_prefix}Q: Where does {p[0]} think {row["P2"]} is?\nA:'
-        results = gather_responses_for_prompt(prompt, models)
+        #print(prompt)
+        async def _gather_tasks():
+            coros = [run_llm_parallel(user_prompt=prompt, model=model) for model in models[:-1]]
+            return await asyncio.gather(*coros)
+
+        # Run it without a main() wrapper
+        results = asyncio.run(_gather_tasks())
+        # Hardcode gpt4
+        results.append(prompt_model(prompt, models[-1]))  
         tom_responses.append(results)
-
-    # For each model, fill dataframe column, compute scores, and save
-    out_dir = os.path.expanduser('~/scratch/mislead-results')
-    os.makedirs(out_dir, exist_ok=True)
-
     for idx, model_name in enumerate(models):
         model_df = dataframes[model_name]
-        model_df['TOM Responses'] = [model_res[idx] for model_res in tom_responses]
-
+        model_df['TOM Responses'] = [model_res[idx] for model_res in tom_responses ]
         # Check scores
-        outs = model_df.apply(lambda x: compute_score_unsure(x['Label'], x['TOM Responses']), axis=1)
+        outs= model_df.apply(lambda x: compute_score_unsure(x['Label'], x['TOM Responses']), axis=1)
         known = [k for k in outs if k == 'True' or k == 'False']
         model_knowns[model_name].append(known)
         unknown = [k for k in outs if k != 'True' and k != 'False']
         model_unkowns[model_name].append(unknown)
-
         print('UKNOWNS')
-        for j in range(len(outs)):
-            if outs.iloc[j] != 'True' and outs.iloc[j] != 'False':
-                clean_out = outs.iloc[j].split('<think>')[-1]
+        for i in range(len(outs)):
+            if outs.iloc[i] != 'True' and outs.iloc[i] != 'False':
+                clean_out = outs.iloc[i].split('<think>')[-1]
                 print(f'{clean_out}')
-                print(f'Index {j}')
+                print(f'Index {i}')
                 print("\n-////==============////-\n")
         print(len(unknown))
-
-        safe_name = model_name.replace('/', '_')
-        model_df.to_csv(os.path.join(out_dir, f'{safe_name}_{values[v]}-mislead.csv'))
+        model_df.to_csv(f'~/scratch/conference-call-story/{model_name.replace("/","_")}_{values[v]}-conference-fixed.csv')
     
 for mn in model_knowns.keys():    
     for i in range(len(model_knowns[mn])):
         score = sum([1 for k in model_knowns[mn][i] if k == 'True'])
-    print(f'Model {mn}|  Mislead = {values[i]}: {score}/{num_trials}, {len(model_unkowns[mn][i])} unkown')
+        print(f'Mislead = {values[i]}: {score}/{num_trials}, {len(model_unkowns[mn][i])} unkown')
